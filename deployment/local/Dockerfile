@@ -1,0 +1,60 @@
+# Base Stage: Install base dependencies in a slim Python image
+FROM python:3.13-slim AS base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libpq-dev \
+    python3-dev \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=on
+
+# Build Stage: Install application dependencies
+FROM base AS build
+
+ENV APP_HOME=/project
+WORKDIR $APP_HOME
+
+# Copy requirements from monorepo structure
+COPY ./requirements/base.txt base.txt
+COPY ./requirements/local.txt requirements.txt
+
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy account service files
+COPY . .
+
+# Copy environment and entrypoint files
+COPY ./deployment/local/env.local .env
+COPY ./deployment/docker-entrypoint.sh docker-entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x docker-entrypoint.sh
+
+# Runtime Stage: Prepare the final image
+FROM base AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libpq-dev \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV APP_HOME=/project
+WORKDIR $APP_HOME
+
+# Copy installed packages from build stage
+COPY --from=build /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=build /usr/local/bin /usr/local/bin
+
+# Copy application files from build stage
+COPY --from=build /project .
+
+EXPOSE 6000
+
+CMD ["/bin/bash", "./docker-entrypoint.sh"]

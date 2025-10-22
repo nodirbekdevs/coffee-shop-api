@@ -1,0 +1,5 @@
+-r base.txt
+ipython==9.0.2
+black==25.9.0
+pre_commit==4.2.0
+pylint==3.3.7

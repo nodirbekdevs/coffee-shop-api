@@ -1,0 +1,97 @@
+services:
+  db_dev:
+    image: postgres:16
+    container_name: coffee_shop_backend_postgres_db_dev
+    restart: unless-stopped
+    env_file:
+      - ./deployment/dev/env.db.dev
+    volumes:
+      - coffee_shop_dev_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5431:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis_dev:
+    image: redis:7
+    container_name: coffee_shop_backend_redis_dev
+    restart: unless-stopped
+    ports:
+      - "6378:6379"
+    environment:
+      - REDIS_PASSWORD=s0hRy4TqE6DlDsmTgkvfnjglDSdMeI
+    command: [ "redis-server", "--requirepass", "s0hRy4TqE6DlDsmTgkvfnjglDSdMeI" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "s0hRy4TqE6DlDsmTgkvfnjglDSdMeI", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  backend_dev:
+    container_name: coffee_shop_backend_dev
+    build:
+      context: .
+      dockerfile: ./deployment/dev/Dockerfile
+    ports:
+      - "7000:7000"
+    env_file:
+      - ./deployment/dev/env.dev
+    depends_on:
+      db_dev:
+        condition: service_healthy
+      redis_dev:
+        condition: service_healthy
+
+  celery_worker_dev:
+    container_name: coffee_shop_backend_celery_worker_dev
+    build:
+      context: .
+      dockerfile: ./deployment/dev/Dockerfile-Celery
+    command: celery -A app.celery:celery worker -l info
+    depends_on:
+      db_dev:
+        condition: service_healthy
+      redis_dev:
+        condition: service_healthy
+
+  celery_beat_dev:
+    container_name: coffee_shop_backend_celery_beat_dev
+    build:
+      context: .
+      dockerfile: ./deployment/dev/Dockerfile-Celery
+    command: celery -A app.celery:celery beat --loglevel=info
+    depends_on:
+      db_dev:
+        condition: service_healthy
+      redis_dev:
+        condition: service_healthy
+      celery_worker_dev:
+        condition: service_started
+
+  flower_dev:
+    container_name: coffee_shop_backend_flower_dev
+    build:
+      context: .
+      dockerfile: ./deployment/dev/Dockerfile-Celery
+    command: celery -A app.celery:celery flower --port=5555
+    ports:
+      - "4444:5555"
+    depends_on:
+      db_dev:
+        condition: service_healthy
+      redis_dev:
+        condition: service_healthy
+      celery_worker_dev:
+        condition: service_started
+
+volumes:
+  coffee_shop_dev_postgres_data:

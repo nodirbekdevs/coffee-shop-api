@@ -1,0 +1,97 @@
+services:
+  db_prod:
+    image: postgres:16
+    container_name: coffee_shop_backend_postgres_db_prod
+    restart: unless-stopped
+    env_file:
+      - ./deployment/prod/env.db.prod
+    volumes:
+      - coffee_shop_prod_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis_prod:
+    image: redis:7
+    container_name: coffee_shop_backend_redis_prod
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=Hj2PjuK9dRs3dgvknSEYkxnvr8W3Zx
+    command: [ "redis-server", "--requirepass", "Hj2PjuK9dRs3dgvknSEYkxnvr8W3Zx" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "Hj2PjuK9dRs3dgvknSEYkxnvr8W3Zx", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  backend_prod:
+    container_name: coffee_shop_backend_prod
+    build:
+      context: .
+      dockerfile: ./deployment/prod/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./deployment/prod/env.prod
+    depends_on:
+      db_prod:
+        condition: service_healthy
+      redis_prod:
+        condition: service_healthy
+
+  celery_worker_prod:
+    container_name: coffee_shop_backend_celery_worker_prod
+    build:
+      context: .
+      dockerfile: ./deployment/prod/Dockerfile-Celery
+    command: celery -A app.celery:celery worker -l info
+    depends_on:
+      db_prod:
+        condition: service_healthy
+      redis_prod:
+        condition: service_healthy
+
+  celery_beat_prod:
+    container_name: coffee_shop_backend_celery_beat_prod
+    build:
+      context: .
+      dockerfile: ./deployment/prod/Dockerfile-Celery
+    command: celery -A app.celery:celery beat --loglevel=info
+    depends_on:
+      db_prod:
+        condition: service_healthy
+      redis_prod:
+        condition: service_healthy
+      celery_worker_prod:
+        condition: service_started
+
+  flower_prod:
+    container_name: coffee_shop_backend_flower_prod
+    build:
+      context: .
+      dockerfile: ./deployment/prod/Dockerfile-Celery
+    command: celery -A app.celery:celery flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      db_prod:
+        condition: service_healthy
+      redis_prod:
+        condition: service_healthy
+      celery_worker_prod:
+        condition: service_started
+
+volumes:
+  coffee_shop_prod_postgres_data:
