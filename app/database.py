@@ -26,7 +26,6 @@ async_engine = create_async_engine(
     pool_timeout=settings.DB.POOL_TIMEOUT,
     pool_recycle=settings.DB.POOL_RECYCLE,
     pool_pre_ping=True,
-    connect_args={"connection_class": CConnection},
 )
 async_session_maker = async_sessionmaker(bind=async_engine, autoflush=False, expire_on_commit=False)
 

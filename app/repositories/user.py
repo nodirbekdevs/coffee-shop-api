@@ -12,9 +12,8 @@ class UserRepository(BaseRepository):
     model = User
 
     async def find_expired_unverified_users(self, expiry_days: int = 2):
-        """Find unverified users older than specified days"""
         model = self.get_model()
-        expiry_date = utc_now() - timedelta(days=expiry_days)
+        expiry_date = utc_now() - timedelta(seconds=30)
 
         async with self._get_async_session() as session:
             stmt = select(model).filter(
@@ -23,4 +22,5 @@ class UserRepository(BaseRepository):
                 model.is_active == True
             )
             result = await session.execute(stmt)
+            await session.close()
             return result.scalars().all()

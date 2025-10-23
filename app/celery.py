@@ -6,11 +6,11 @@ from app.config import settings
 celery = Celery(
     "tasks",
     broker=settings.REDIS.CELERY_URL,
+    backend=settings.REDIS.CELERY_URL,
     include=[
         "app.tasks.clean_unverified_users",
     ],
 )
-
 
 celery.conf.beat_schedule = {
     'cleanup-unverified-users-daily': {
@@ -21,9 +21,11 @@ celery.conf.beat_schedule = {
 
 celery.conf.update(
     task_serializer="json",
-    accept_content=["application/json"],
+    accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
     broker_connection_retry_on_startup=True,
+    beat_scheduler="celery.beat.PersistentScheduler",
+    beat_schedule_filename="celerybeat-schedule",
 )

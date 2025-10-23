@@ -4,11 +4,9 @@ services:
     container_name: coffee_shop_backend_postgres_db_dev
     restart: unless-stopped
     env_file:
-      - ./deployment/dev/env.db.dev
+      - ./deployment/dev/env.dev
     volumes:
       - coffee_shop_dev_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5431:5432"
     healthcheck:
       test:
         [
@@ -24,10 +22,10 @@ services:
     image: redis:7
     container_name: coffee_shop_backend_redis_dev
     restart: unless-stopped
-    ports:
-      - "6378:6379"
     environment:
       - REDIS_PASSWORD=s0hRy4TqE6DlDsmTgkvfnjglDSdMeI
+    volumes:
+      - coffee_shop_dev_redis_data:/data
     command: [ "redis-server", "--requirepass", "s0hRy4TqE6DlDsmTgkvfnjglDSdMeI" ]
     healthcheck:
       test: [ "CMD", "redis-cli", "-a", "s0hRy4TqE6DlDsmTgkvfnjglDSdMeI", "ping" ]
@@ -95,3 +93,4 @@ services:
 
 volumes:
   coffee_shop_dev_postgres_data:
+  coffee_shop_dev_redis_data:

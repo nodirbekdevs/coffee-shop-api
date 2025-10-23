@@ -4,6 +4,9 @@ FROM python:3.13-slim AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
+    libpq-dev \
+    python3-dev \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
@@ -14,13 +17,14 @@ ENV PYTHONUNBUFFERED=1 \
 FROM base AS build
 
 ENV APP_HOME=/project
-
 WORKDIR $APP_HOME
 
 # Copy requirements from monorepo structure
 COPY ./requirements/base.txt base.txt
 COPY ./requirements/prod.txt requirements.txt
-RUN pip install --upgrade pip setuptools wheel && pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy account service files
 COPY . .
@@ -37,6 +41,8 @@ FROM base AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libpq-dev \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 ENV APP_HOME=/project
